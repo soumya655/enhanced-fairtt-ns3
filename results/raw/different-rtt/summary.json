@@ -1,0 +1,17 @@
+{
+  "tcpTypeId": "TcpCubic",
+  "bottleneckBw": "10Mbps",
+  "bottleneckDelay": "10ms",
+  "accessDelayA": "5ms",
+  "accessDelayB": "35ms",
+  "flowA_avg_mbps": 7.01103,
+  "flowB_avg_mbps": 3.16289,
+  "aggregate_mbps": 10.1739,
+  "jains_fairness_index": 0.874843,
+  "flowA_rx_bytes": 2.45386e+07,
+  "flowB_rx_bytes": 1.10701e+07,
+  "flowA_lost_packets": 69,
+  "flowB_lost_packets": 18,
+  "flowA_mean_delay_ms": 101,
+  "flowB_mean_delay_ms": 159
+}

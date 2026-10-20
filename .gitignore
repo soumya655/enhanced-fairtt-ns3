@@ -1,0 +1,28 @@
+# Build artifacts & binaries
+build/
+cmake-build-*/
+*.o
+*.so
+*.a
+*.out
+*.exe
+
+# Large simulation trace files & pcaps
+*.pcap
+*.pcapng
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# System and IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+*.log
