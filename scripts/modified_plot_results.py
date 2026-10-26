@@ -50,9 +50,91 @@ def plot_experiment_results(exp_dir, exp_title="Experiment Results", output_pref
     os.makedirs(os.path.dirname(output_prefix), exist_ok=True)
 
     # 1. Throughput & Fairness
+    # Legacy two-flow output: throughput.csv
     tp_file = os.path.join(exp_dir, "throughput.csv")
     tp_rows = read_csv(tp_file)
-    if tp_rows:
+
+    # Elephant/mice output is long-form:
+    # time,flow,throughput_mbps,cumulative_rx_bytes
+    em_file = os.path.join(exp_dir, "elephant_mice_throughput.csv")
+    em_rows = read_csv(em_file)
+
+    if em_rows:
+        # Group each flow's samples without assuming a fixed number of mice.
+        flows = {}
+        for row in em_rows:
+            flow_name = row.get("flow", "").strip()
+            if not flow_name:
+                continue
+            flows.setdefault(flow_name, []).append({
+                "time": float(row["time"]),
+                "throughput_mbps": float(row["throughput_mbps"]),
+                "cumulative_rx_bytes": float(row.get("cumulative_rx_bytes", 0) or 0),
+            })
+
+        fig, (ax1, ax2) = plt.subplots(
+            2, 1, figsize=(11, 7), sharex=True,
+            gridspec_kw={"height_ratios": [2, 1]}
+        )
+        flow_rates_by_time = {}
+        for flow_name, samples in sorted(flows.items()):
+            samples.sort(key=lambda item: item["time"])
+            tx = [s["time"] for s in samples]
+            rates = [s["throughput_mbps"] for s in samples]
+            flow_rates_by_time[flow_name] = dict(zip(tx, rates))
+            ax1.plot(tx, rates, linewidth=1.5, label=f"{flow_name} throughput")
+
+        # Sum per-flow rates only at timestamps shared by all active flow samples.
+        # This is a visual aggregate of reported rates, not a link-capacity proof
+        # if the source rows use different averaging windows.
+        if flow_rates_by_time:
+            shared_times = sorted(set.intersection(
+                *(set(rate_map.keys()) for rate_map in flow_rates_by_time.values())
+            )) if len(flow_rates_by_time) > 1 else sorted(next(iter(flow_rates_by_time.values())).keys())
+            if shared_times:
+                aggregate = [
+                    sum(rate_map[t] for rate_map in flow_rates_by_time.values())
+                    for t in shared_times
+                ]
+                ax1.plot(shared_times, aggregate, color="#2ca02c",
+                         linestyle="--", linewidth=1.8, label="Aggregate reported throughput")
+
+            # Compute Jain's index across flows at each timestamp where every flow
+            # has a sample. A mouse that has not started yet is not silently treated
+            # as an active zero-throughput flow.
+            fairness_times, fairness_values = [], []
+            for t in shared_times:
+                values = [rate_map[t] for rate_map in flow_rates_by_time.values()]
+                denom = len(values) * sum(v * v for v in values)
+                fairness = (sum(values) ** 2 / denom) if denom > 0 else 1.0
+                fairness_times.append(t)
+                fairness_values.append(fairness)
+            if fairness_times:
+                ax2.plot(fairness_times, fairness_values,
+                         label="Jain's Fairness Index (sampled flows)",
+                         color="#9467bd", linewidth=1.8)
+
+        ax1.axhline(y=10.0, color="#d62728", linestyle=":",
+                    label="Bottleneck Capacity (10 Mbps)", alpha=0.8)
+        ax1.set_ylabel("Throughput (Mbps)")
+        ax1.set_title(f"{exp_title}: Elephant/Mice Throughput and Fairness vs. Time")
+        ax1.legend(loc="upper right", framealpha=0.9)
+        ax1.grid(True)
+        ax1.set_ylim(bottom=0)
+        ax2.axhline(y=1.0, color="#7f7f7f", linestyle=":", alpha=0.7)
+        ax2.set_xlabel("Time (seconds)")
+        ax2.set_ylabel("Jain's Index")
+        ax2.set_ylim(-0.05, 1.05)
+        ax2.legend(loc="lower right", framealpha=0.9)
+        ax2.grid(True)
+        plt.tight_layout()
+        tp_out = f"{output_prefix}_throughput_fairness.png"
+        plt.savefig(tp_out, dpi=300)
+        plt.close()
+        print(f"[PLOT] Generated elephant/mice plot: {tp_out}")
+
+    elif tp_rows:
+        # Standard equal-RTT / different-RTT experiment.
         time = [float(r["time"]) for r in tp_rows]
         flowA = [float(r["flowA_mbps"]) for r in tp_rows]
         flowB = [float(r["flowB_mbps"]) for r in tp_rows]
@@ -60,7 +142,6 @@ def plot_experiment_results(exp_dir, exp_title="Experiment Results", output_pref
         fairness = [float(r["fairness_index"]) for r in tp_rows]
 
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 7), sharex=True, gridspec_kw={"height_ratios": [2, 1]})
-
         ax1.plot(time, flowA, label="Flow A Throughput", color="#1f77b4", linewidth=2.0)
         ax1.plot(time, flowB, label="Flow B Throughput", color="#ff7f0e", linewidth=2.0)
         ax1.plot(time, agg, label="Aggregate Throughput", color="#2ca02c", linestyle="--", linewidth=1.8)
@@ -202,8 +283,8 @@ def plot_cross_comparison(equal_rtt_dir, diff_rtt_dir, output_path):
 
 def main():
     parser = argparse.ArgumentParser(description="Plot simulation results.")
-    parser.add_argument("--equal-rtt", help="Path to equal-rtt result directory")
-    parser.add_argument("--diff-rtt", help="Path to different-rtt result directory")
+    parser.add_argument("--equal-rtt", help="Path to equal-rtt result directory (throughput.csv)")
+    parser.add_argument("--diff-rtt", help="Path to different-rtt OR elephant/mice result directory")
     parser.add_argument("--outdir", default="results/plots", help="Output directory for plots")
     args = parser.parse_args()
 

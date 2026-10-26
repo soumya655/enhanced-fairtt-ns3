@@ -2,10 +2,10 @@
   "active_start_time": 2.0,
   "active_stop_time": 29.0,
   "sample_count": 136,
-  "flowA_mean_mbps": 5.4568,
-  "flowB_mean_mbps": 4.2554,
-  "aggregate_mean_mbps": 9.7122,
-  "time_averaged_jains_index": 0.949,
-  "overall_jains_index": 0.9849,
-  "throughput_ratio_A_to_B": 1.2823
+  "flowA_mean_mbps": 4.7576,
+  "flowB_mean_mbps": 4.738,
+  "aggregate_mean_mbps": 9.4954,
+  "time_averaged_jains_index": 0.9998,
+  "overall_jains_index": 1.0,
+  "throughput_ratio_A_to_B": 1.0041
 }

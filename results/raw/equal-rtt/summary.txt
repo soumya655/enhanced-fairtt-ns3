@@ -1,7 +1,8 @@
 ========================================================
 Enhanced FaiRTT - Stage 1 Dumbbell Baseline Simulation
 ========================================================
-Congestion Control: TcpCubic
+Congestion Control: TcpBbrFairtt
+Traffic Scenario: original two long-lived flows
 Bottleneck: 10Mbps, 10ms
 Access Link: 100Mbps
 Flow A Delay: 5ms (Base RTT approx)
@@ -10,18 +11,18 @@ Queue Disc: FifoQueueDisc (100p)
 Simulation Time: 30 s
 --------------------------------------------------------
 Flow A (Port 50001):
-  Rx Bytes:       2.00671e+07 bytes
-  Avg Throughput: 5.733 Mbps
-  Tx / Rx Pkts:   13570 / 13380
-  Lost Packets:   127
-  Mean Delay:     109.000 ms
+  Rx Bytes:       1.75816e+07 bytes
+  Avg Throughput: 4.850 Mbps
+  Tx / Rx Pkts:   12164 / 12144
+  Lost Packets:   0
+  Mean Delay:     44.000 ms
 Flow B (Port 50002):
-  Rx Bytes:       15795108.000 bytes
-  Avg Throughput: 4.513 Mbps
-  Tx / Rx Pkts:   10699 / 10532
-  Lost Packets:   123
-  Mean Delay:     108.000 ms
+  Rx Bytes:       16776528.000 bytes
+  Avg Throughput: 4.628 Mbps
+  Tx / Rx Pkts:   11606 / 11588
+  Lost Packets:   0
+  Mean Delay:     44.000 ms
 --------------------------------------------------------
-Aggregate Throughput: 10.246 Mbps
-Overall Jain's Fairness Index: 0.9860
+Aggregate Throughput (Flow A + Flow B): 9.478 Mbps
+Overall Jain's Fairness Index (Flow A and Flow B): 0.9995
 ========================================================
