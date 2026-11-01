@@ -10,27 +10,69 @@
 
 #include "tcp-bbr-fairtt.h"
 
-#include "ns3/log.h"
-#include "ns3/simulator.h"
-
 #include <algorithm>
-#include <deque>
 #include <map>
 #include <set>
+
+#include "ns3/log.h"
+#include "ns3/simulator.h"
 
 namespace ns3
 {
 
-// Simulation-local registry of active TcpBbrFairtt instances. This provides the
-// cross-flow RTT information required by the paper's fairness-threshold equation.
-struct FairRttFlowState
+namespace
 {
-    Time minRtt{Time::Max()};
-    double weightedMinRttSeconds{0.0};
-    uint32_t windowBytes{0};
-};
-static std::map<const TcpBbrFairtt*, FairRttFlowState> g_fairttFlows;
 
+constexpr long double FAIR_RTT_BETA = 0.8L;
+constexpr double FAIR_RTT_GAMMA = 0.99;
+
+struct FairRttFlowSample
+{
+    uint32_t group;
+    Time smoothedMinRtt;
+};
+
+std::map<const TcpBbrFairtt*, FairRttFlowSample> g_fairRttFlowSamples;
+
+void
+UpdateFairRttFlowSample(const TcpBbrFairtt* controller, uint32_t group, Time smoothedMinRtt)
+{
+    g_fairRttFlowSamples[controller] = {group, smoothedMinRtt};
+}
+
+void
+RemoveFairRttFlowSample(const TcpBbrFairtt* controller)
+{
+    g_fairRttFlowSamples.erase(controller);
+}
+
+bool
+CalculateFairRttThreshold(uint32_t group, Time& threshold)
+{
+    std::set<Time> uniqueRtts;
+    for (const auto& [controller, sample] : g_fairRttFlowSamples)
+    {
+        if (sample.group == group && sample.smoothedMinRtt.IsPositive())
+        {
+            uniqueRtts.insert(sample.smoothedMinRtt);
+        }
+    }
+
+    if (uniqueRtts.empty())
+    {
+        return false;
+    }
+
+    long double sumSeconds = 0.0L;
+    for (const Time& rtt : uniqueRtts)
+    {
+        sumSeconds += rtt.GetSeconds();
+    }
+    threshold = Seconds(static_cast<double>(sumSeconds / uniqueRtts.size()));
+    return true;
+}
+
+} // namespace
 
 NS_LOG_COMPONENT_DEFINE("TcpBbrFairtt");
 NS_OBJECT_ENSURE_REGISTERED(TcpBbrFairtt);
@@ -55,16 +97,6 @@ TcpBbrFairtt::GetTypeId()
                           DoubleValue(2.89),
                           MakeDoubleAccessor(&TcpBbrFairtt::m_highGain),
                           MakeDoubleChecker<double>())
-            .AddAttribute("FairRttBeta",
-                          "FaiRTT smoothing factor (paper uses 0.8; exposed for experiments)",
-                          DoubleValue(0.8),
-                          MakeDoubleAccessor(&TcpBbrFairtt::m_fairRttBeta),
-                          MakeDoubleChecker<double>(0.0, 1.0))
-            .AddAttribute("FairRttGamma",
-                          "FaiRTT BDP discount factor (paper uses 0.99)",
-                          DoubleValue(0.99),
-                          MakeDoubleAccessor(&TcpBbrFairtt::m_fairRttGamma),
-                          MakeDoubleChecker<double>(0.0, 1.0))
             .AddAttribute("BwWindowLength",
                           "Length of bandwidth windowed filter",
                           UintegerValue(10),
@@ -75,6 +107,12 @@ TcpBbrFairtt::GetTypeId()
                           TimeValue(Seconds(10)),
                           MakeTimeAccessor(&TcpBbrFairtt::m_minRttFilterLen),
                           MakeTimeChecker())
+            .AddAttribute("RttFairnessGroup",
+                          "Identifier for FaiRTT flows that share a bottleneck and contribute to "
+                          "the cross-flow RTT fairness threshold",
+                          UintegerValue(0),
+                          MakeUintegerAccessor(&TcpBbrFairtt::m_rttFairnessGroup),
+                          MakeUintegerChecker<uint32_t>())
             .AddAttribute("ProbeRttDuration",
                           "Time to be spent in PROBE_RTT phase",
                           TimeValue(MilliSeconds(200)),
@@ -112,7 +150,6 @@ TcpBbrFairtt::TcpBbrFairtt()
 {
     NS_LOG_FUNCTION(this);
     m_uv = CreateObject<UniformRandomVariable>();
-    g_fairttFlows[this] = FairRttFlowState{};
 }
 
 TcpBbrFairtt::TcpBbrFairtt(const TcpBbrFairtt& sock)
@@ -143,6 +180,7 @@ TcpBbrFairtt::TcpBbrFairtt(const TcpBbrFairtt& sock)
       m_minRttExpired(sock.m_minRttExpired),
       m_minRttFilterLen(sock.m_minRttFilterLen),
       m_minRttStamp(sock.m_minRttStamp),
+      m_rttFairnessGroup(sock.m_rttFairnessGroup),
       m_isInitialized(sock.m_isInitialized),
       m_uv(sock.m_uv),
       m_delivered(sock.m_delivered),
@@ -153,17 +191,9 @@ TcpBbrFairtt::TcpBbrFairtt(const TcpBbrFairtt& sock)
       m_extraAckedIdx(sock.m_extraAckedIdx),
       m_ackEpochTime(sock.m_ackEpochTime),
       m_ackEpochAcked(sock.m_ackEpochAcked),
-      m_hasSeenRtt(sock.m_hasSeenRtt),
-      m_fairRttBeta(sock.m_fairRttBeta),
-      m_fairRttGamma(sock.m_fairRttGamma)
+      m_hasSeenRtt(sock.m_hasSeenRtt)
 {
     NS_LOG_FUNCTION(this);
-    g_fairttFlows[this].minRtt = m_minRtt;
-}
-
-TcpBbrFairtt::~TcpBbrFairtt()
-{
-    g_fairttFlows.erase(this);
 }
 
 void
@@ -285,50 +315,26 @@ TcpBbrFairtt::InFlight(Ptr<TcpSocketState> tcb, double gain)
         return tcb->m_initialCWnd * tcb->m_segmentSize;
     }
     double quanta = 3 * m_sendQuantum;
-    double estimatedBdp = m_maxBwFilter.GetBest() * m_minRtt / 8.0;
-
-    // FaiRTT Algorithm 1, applied only in PROBE_BW.
-    // Paper equations (5)-(7) define Wt=min(receive-window, send-window),
-    // Wf_count as the number of distinct minRTT values, and alpha from the
-    // weighted RTT values. We preserve those definitions explicitly here.
-    if (m_state == BbrMode_t::BBR_PROBE_BW && tcb->m_lastRtt.Get().IsPositive())
+    const Time minRtt = m_minRtt.Get();
+    double estimatedBdp = m_maxBwFilter.GetBest() * minRtt / 8.0;
+    if (m_state == BbrMode_t::BBR_PROBE_BW && minRtt.IsPositive())
     {
-        const uint32_t windowBytes = std::min(tcb->m_rWnd, tcb->m_cWnd.Get());
-        auto& ownState = g_fairttFlows[this];
-        ownState.minRtt = m_minRtt;
-        ownState.windowBytes = std::max<uint32_t>(windowBytes, 1);
-
-        std::set<int64_t> uniqueMinRttNs;
-        uint32_t flowCount = 0;
-        double weightedRttSumSeconds = 0.0;
-        for (const auto& entry : g_fairttFlows)
+        Time threshold;
+        const Time lastRtt = tcb->m_lastRtt.Get();
+        if (lastRtt.IsPositive() && CalculateFairRttThreshold(m_rttFairnessGroup, threshold) &&
+            lastRtt > threshold)
         {
-            const auto& flow = entry.second;
-            if (flow.minRtt != Time::Max() && flow.minRtt.IsPositive())
-            {
-                ++flowCount;
-                uniqueMinRttNs.insert(flow.minRtt.GetNanoSeconds());
-                // Equation (5): sum W_minRTT_j / W_t. The source paper's
-                // equations use window size in this denominator; clamp to 1
-                // to avoid division by zero before TCP windows are established.
-                weightedRttSumSeconds += flow.weightedMinRttSeconds /
-                                         std::max<uint32_t>(flow.windowBytes, 1);
-            }
-        }
-
-        if (flowCount > 0 && !uniqueMinRttNs.empty())
-        {
-            // W_f_count is the count of distinct minimum RTT values (Eq. 5).
-            const double alphaSeconds =
-                static_cast<double>(uniqueMinRttNs.size()) * weightedRttSumSeconds;
-            const double lastRttSeconds = tcb->m_lastRtt.Get().GetSeconds();
-            if (lastRttSeconds > alphaSeconds)
-            {
-                // Equation (8) / Algorithm 1: discounted BDP for RTTs above alpha.
-                const double scale = (m_minRtt.GetSeconds() * m_fairRttGamma) /
-                                     lastRttSeconds;
-                estimatedBdp *= std::clamp(scale, 0.0, 1.0);
-            }
+            const double adjustment =
+                FAIR_RTT_GAMMA * minRtt.GetSeconds() / lastRtt.GetSeconds();
+            const double unadjustedBdp = estimatedBdp;
+            estimatedBdp *= adjustment;
+            NS_LOG_DEBUG("FaiRTT applied BDP adjustment=" << adjustment
+                                                          << " BDP-bytes=" << unadjustedBdp
+                                                          << "->" << estimatedBdp
+                                                          << " lastRTT=" << lastRtt
+                                                          << " minRTT=" << minRtt
+                                                          << " alpha=" << threshold
+                                                          << " group=" << m_rttFairnessGroup);
         }
     }
 
@@ -448,26 +454,31 @@ TcpBbrFairtt::UpdateRTprop(Ptr<TcpSocketState> tcb)
     {
         m_minRtt = tcb->m_lastRtt;
         m_minRttStamp = Simulator::Now();
-        m_fairRttMinRttHistory.emplace_back(Simulator::Now(), m_minRtt);
-        while (!m_fairRttMinRttHistory.empty() &&
-               Simulator::Now() - m_fairRttMinRttHistory.front().first > m_minRttFilterLen)
+    }
+
+    if (m_hasNewFairnessRttSample && m_minRtt.Get().IsPositive())
+    {
+        const long double currentMinRtt = m_minRtt.Get().GetSeconds();
+        long double priorAverageSeconds = 0.0L;
+        if (m_fairRttHistoryCount == 0)
         {
-            m_fairRttMinRttHistory.pop_front();
+            m_smoothedMinRtt = m_minRtt;
         }
-        double historySumSeconds = 0.0;
-        for (const auto& sample : m_fairRttMinRttHistory)
+        else
         {
-            historySumSeconds += sample.second.GetSeconds();
+            priorAverageSeconds = m_fairRttHistorySumSeconds / m_fairRttHistoryCount;
+            m_smoothedMinRtt =
+                Seconds(static_cast<double>(FAIR_RTT_BETA * priorAverageSeconds +
+                                            (1.0L - FAIR_RTT_BETA) * currentMinRtt));
         }
-        const double averageHistorySeconds =
-            historySumSeconds / std::max<uint32_t>(
-                std::min(tcb->m_rWnd, tcb->m_cWnd.Get()), 1);
-        auto& flow = g_fairttFlows[this];
-        flow.minRtt = m_minRtt;
-        flow.windowBytes = std::max<uint32_t>(std::min(tcb->m_rWnd, tcb->m_cWnd.Get()), 1);
-        // Equation (6): W_minRTT_t = beta * historical average + (1-beta) * minRTT_t.
-        flow.weightedMinRttSeconds = m_fairRttBeta * averageHistorySeconds +
-                                     (1.0 - m_fairRttBeta) * m_minRtt.GetSeconds();
+        m_fairRttHistorySumSeconds += currentMinRtt;
+        ++m_fairRttHistoryCount;
+        UpdateFairRttFlowSample(this, m_rttFairnessGroup, m_smoothedMinRtt);
+        NS_LOG_DEBUG("FaiRTT Eq. 6 minRTT=" << m_minRtt.Get()
+                                            << " priorMeanSeconds=" << priorAverageSeconds
+                                            << " WminRTT=" << m_smoothedMinRtt
+                                            << " samples=" << m_fairRttHistoryCount);
+        m_hasNewFairnessRttSample = false;
     }
 }
 
@@ -577,6 +588,24 @@ TcpBbrFairtt::UpdateTargetCwnd(Ptr<TcpSocketState> tcb)
 {
     NS_LOG_FUNCTION(this << tcb);
     m_targetCWnd = InFlight(tcb, m_cWndGain) + AckAggregationCwnd();
+}
+
+void
+TcpBbrFairtt::RttSample(Ptr<TcpSocketState> tcb, const Time& rtt)
+{
+    NS_LOG_FUNCTION(this << tcb << rtt);
+    if (rtt.IsPositive())
+    {
+        m_hasNewFairnessRttSample = true;
+    }
+}
+
+void
+TcpBbrFairtt::ConnectionClosed(Ptr<TcpSocketState> tcb)
+{
+    NS_LOG_FUNCTION(this << tcb);
+    RemoveFairRttFlowSample(this);
+    m_hasNewFairnessRttSample = false;
 }
 
 uint32_t
@@ -895,7 +924,12 @@ TcpBbrFairtt::GetSsThresh(Ptr<const TcpSocketState> tcb, uint32_t bytesInFlight)
 {
     NS_LOG_FUNCTION(this << tcb << bytesInFlight);
     SaveCwnd(tcb);
-    return tcb->m_ssThresh;
+    uint32_t safeThresh = (m_priorCwnd > 0) ? m_priorCwnd : bytesInFlight;
+    if (tcb->m_ssThresh.Get() < safeThresh && tcb->m_ssThresh.Get() > 0)
+    {
+        safeThresh = tcb->m_ssThresh.Get();
+    }
+    return std::max(safeThresh, tcb->m_segmentSize);
 }
 
 Ptr<TcpCongestionOps>

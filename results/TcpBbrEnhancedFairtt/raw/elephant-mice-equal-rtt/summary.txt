@@ -1,0 +1,38 @@
+========================================================
+Enhanced FaiRTT - Stage 1 Dumbbell Baseline Simulation
+========================================================
+Congestion Control: TcpBbrEnhancedFairtt
+Traffic Scenario: one elephant + five staggered mice
+Bottleneck: 10Mbps, 10ms
+Access Link: 100Mbps
+Flow A Delay: 5ms (Base RTT approx)
+Flow B Delay: 5ms (Base RTT approx)
+Queue Disc: FifoQueueDisc (100p)
+Simulation Time: 30 s
+RNG Seed / Run: 1 / 1
+V2 Fairness Settings: floor=0.7, transition=0.15, smoothing=50 ms, max inflight=524288 bytes
+--------------------------------------------------------
+Flow A (Port 50001):
+  Rx Bytes:       3.37471e+07 bytes
+  Avg Throughput: 9.310 Mbps
+  Tx / Rx Pkts:   23347 / 23308
+  Lost Packets:   0
+  Mean Delay:     37.000 ms
+Flow B (disabled; mice use separate ports):
+  Rx Bytes:       0.000 bytes
+  Avg Throughput: 0.000 Mbps
+  Tx / Rx Pkts:   0 / 0
+  Lost Packets:   0
+  Mean Delay:     0.000 ms
+--------------------------------------------------------
+Elephant + Mice Flow Results (application bytes received):
+  Elephant (Flow A): 33747088.000 bytes; 9.310 Mbps average from elephant start to simulation end
+  Mice port 50100: 51200 bytes received; 0.016 Mbps average from arrival to simulation end; configured size 51200 bytes; arrival 4.000 s
+  Mice port 50101: 102400 bytes received; 0.037 Mbps average from arrival to simulation end; configured size 102400 bytes; arrival 8.000 s
+  Mice port 50102: 76800 bytes received; 0.034 Mbps average from arrival to simulation end; configured size 76800 bytes; arrival 12.000 s
+  Mice port 50103: 153600 bytes received; 0.088 Mbps average from arrival to simulation end; configured size 153600 bytes; arrival 16.000 s
+  Mice port 50104: 102400 bytes received; 0.082 Mbps average from arrival to simulation end; configured size 102400 bytes; arrival 20.000 s
+  Per-sample throughput is in elephant_mice_throughput.csv
+Aggregate Throughput (Flow A + legacy Flow B counters): 9.310 Mbps
+Overall Jain's Fairness Index (legacy A/B counters): 0.5000
+========================================================

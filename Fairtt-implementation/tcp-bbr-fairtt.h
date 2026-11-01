@@ -18,21 +18,17 @@
 #include "ns3/random-variable-stream.h"
 #include "ns3/traced-value.h"
 
-#include <deque>
-#include <utility>
-
-class TcpBbrFairttFairttCheckGainValuesTest;
-
 namespace ns3
 {
 
 /**
  * @ingroup congestionOps
  *
- * @brief BBR congestion control algorithm
+ * @brief Experimental, paper-informed RTT-fairness controller derived from BBR.
  *
- * This class implement the BBR (Bottleneck Bandwidth and Round-trip propagation time)
- * congestion control type.
+ * The controller applies Algorithm 1's PROBE_BW BDP adjustment using a
+ * dimensionally consistent, explicitly assumed interpretation of the paper's
+ * ambiguous alpha equation. It is not a paper-faithful reproduction.
  */
 class TcpBbrFairtt : public TcpCongestionOps
 {
@@ -63,7 +59,6 @@ class TcpBbrFairtt : public TcpCongestionOps
      * @param sock The socket to copy from.
      */
     TcpBbrFairtt(const TcpBbrFairtt& sock);
-    ~TcpBbrFairtt() override;
 
     /**
      * @brief BBR has the following 4 modes for deciding how fast to send:
@@ -100,6 +95,8 @@ class TcpBbrFairtt : public TcpCongestionOps
     void CongControl(Ptr<TcpSocketState> tcb,
                      const TcpRateOps::TcpRateConnection& rc,
                      const TcpRateOps::TcpRateSample& rs) override;
+    void RttSample(Ptr<TcpSocketState> tcb, const Time& rtt) override;
+    void ConnectionClosed(Ptr<TcpSocketState> tcb) override;
     void CongestionStateSet(Ptr<TcpSocketState> tcb,
                             const TcpSocketState::TcpCongState_t newState) override;
     void CwndEvent(Ptr<TcpSocketState> tcb, const TcpSocketState::TcpCAEvent_t event) override;
@@ -108,12 +105,6 @@ class TcpBbrFairtt : public TcpCongestionOps
     Ptr<TcpCongestionOps> Fork() override;
 
   public:
-    /**
-     * @brief TcpBbrFairttFairttCheckGainValuesTest friend class (for tests).
-     * @relates TcpBbrFairttFairttCheckGainValuesTest
-     */
-    friend class ::TcpBbrFairttFairttCheckGainValuesTest;
-
     /**
      * @brief Advances pacing gain using cycle gain algorithm, while in BBR_PROBE_BW state
      */
@@ -378,6 +369,11 @@ class TcpBbrFairtt : public TcpCongestionOps
     Time m_minRttFilterLen{Seconds(10)}; //!< A constant specifying the length of the RTProp min
                                          //!< filter window, default 10 secs.
     Time m_minRttStamp; //!< The wall clock time at which the current BBR.RTProp sample was obtained
+    uint32_t m_rttFairnessGroup{0}; //!< Group identifier for flows sharing the same bottleneck
+    long double m_fairRttHistorySumSeconds{0.0L}; //!< Sum of prior per-flow minRTT observations
+    uint64_t m_fairRttHistoryCount{0}; //!< Number of prior observations in the cumulative RTT mean
+    Time m_smoothedMinRtt{Time::Max()}; //!< Equation (6) estimate for this flow
+    bool m_hasNewFairnessRttSample{false}; //!< New RTT sample awaiting cumulative smoothing
     bool m_isInitialized{false}; //!< Set to true after first time initialization variables
     Ptr<UniformRandomVariable> m_uv{nullptr}; //!< Uniform Random Variable
     uint64_t m_delivered{0};              //!< The total amount of data in bytes delivered so far
@@ -395,10 +391,6 @@ class TcpBbrFairtt : public TcpCongestionOps
     double m_pacingMargin{0.01}; //!< BBR intentionally reduces the pacing rate by 1% to drain any
                                  //!< standing queues. See `bbr_rate_bytes_per_sec` in Linux.
 
-    // FaiRTT parameters and timestamped min-RTT samples used by Eq. (6).
-    double m_fairRttBeta{0.8};
-    double m_fairRttGamma{0.99};
-    std::deque<std::pair<Time, Time>> m_fairRttMinRttHistory;
 };
 
 } // namespace ns3

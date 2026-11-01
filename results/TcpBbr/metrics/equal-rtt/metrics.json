@@ -1,0 +1,45 @@
+{
+  "active_start_time": 2.0,
+  "active_stop_time": 29.0,
+  "sample_count": 136,
+  "flowA_mean_mbps": 4.7576,
+  "flowB_mean_mbps": 4.738,
+  "aggregate_mean_mbps": 9.4954,
+  "time_averaged_jains_index": 0.9998,
+  "overall_jains_index": 1.0,
+  "throughput_ratio_A_to_B": 1.0041,
+  "cwnd_stability": {
+    "interpretation": "Congestion-window trace is used as an in-flight target proxy; it is not a direct measurement of bytes in flight or estimated BDP.",
+    "sampling_interval_seconds": 0.2,
+    "per_flow": {
+      "FlowA": {
+        "sample_count": 136,
+        "mean_cwnd_packets": 41.5478,
+        "cwnd_coefficient_of_variation": 0.132068,
+        "mean_absolute_relative_step": 0.118142,
+        "max_absolute_relative_step": 6.535917
+      },
+      "FlowB": {
+        "sample_count": 136,
+        "mean_cwnd_packets": 41.4954,
+        "cwnd_coefficient_of_variation": 0.134088,
+        "mean_absolute_relative_step": 0.124172,
+        "max_absolute_relative_step": 6.793617
+      }
+    }
+  },
+  "experiment_metadata": {
+    "tcpTypeId": "TcpBbr",
+    "trafficScenario": "two_long_lived_flows",
+    "rngSeed": 1,
+    "rngRun": 1,
+    "bottleneckBw": "10Mbps",
+    "bottleneckDelay": "10ms",
+    "accessDelayA": "5ms",
+    "accessDelayB": "5ms",
+    "v2FairnessFloorStrength": 0.7,
+    "v2FairnessTransition": 0.15,
+    "v2BdpSmoothingTimeMs": 50,
+    "v2MaxInflightBytes": 524288
+  }
+}

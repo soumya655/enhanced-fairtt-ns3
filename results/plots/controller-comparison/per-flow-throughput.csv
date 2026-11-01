@@ -1,0 +1,65 @@
+scenario,scenario_label,controller,flow,mean_mbps
+equal-rtt,Equal RTT,TcpBbr,flowA,4.7576
+equal-rtt,Equal RTT,TcpBbr,flowB,4.738
+equal-rtt,Equal RTT,TcpBbrFairtt,flowA,4.8606
+equal-rtt,Equal RTT,TcpBbrFairtt,flowB,4.6349
+equal-rtt,Equal RTT,TcpBbrEnhancedFairtt,flowA,4.7171
+equal-rtt,Equal RTT,TcpBbrEnhancedFairtt,flowB,4.7788
+equal-rtt,Equal RTT,TcpBbrEnhancedFairttV2,flowA,4.7222
+equal-rtt,Equal RTT,TcpBbrEnhancedFairttV2,flowB,4.7775
+different-rtt,Different RTT,TcpBbr,flowA,1.2926
+different-rtt,Different RTT,TcpBbr,flowB,8.0777
+different-rtt,Different RTT,TcpBbrFairtt,flowA,1.5643
+different-rtt,Different RTT,TcpBbrFairtt,flowB,7.8298
+different-rtt,Different RTT,TcpBbrEnhancedFairtt,flowA,3.0148
+different-rtt,Different RTT,TcpBbrEnhancedFairtt,flowB,6.2835
+different-rtt,Different RTT,TcpBbrEnhancedFairttV2,flowA,5.3048
+different-rtt,Different RTT,TcpBbrEnhancedFairttV2,flowB,4.1392
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbr,elephant,9.3357
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbr,mice_50100,0.6827
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbr,mice_50101,1.024
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbr,mice_50102,0.768
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbr,mice_50103,1.536
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbr,mice_50104,1.024
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbrFairtt,elephant,9.3332
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbrFairtt,mice_50100,0.6827
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbrFairtt,mice_50101,1.3653
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbrFairtt,mice_50102,1.024
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbrFairtt,mice_50103,2.048
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbrFairtt,mice_50104,1.3653
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbrEnhancedFairtt,elephant,9.3294
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbrEnhancedFairtt,mice_50100,0.6827
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbrEnhancedFairtt,mice_50101,1.3653
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbrEnhancedFairtt,mice_50102,1.024
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbrEnhancedFairtt,mice_50103,1.536
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbrEnhancedFairtt,mice_50104,1.3653
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbrEnhancedFairttV2,elephant,9.3362
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbrEnhancedFairttV2,mice_50100,0.6827
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbrEnhancedFairttV2,mice_50101,1.024
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbrEnhancedFairttV2,mice_50102,1.024
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbrEnhancedFairttV2,mice_50103,1.536
+elephant-mice-equal-rtt,Equal RTT elephant/mice,TcpBbrEnhancedFairttV2,mice_50104,1.024
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbr,elephant,9.3362
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbr,mice_50100,0.4096
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbr,mice_50101,0.6827
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbr,mice_50102,0.512
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbr,mice_50103,0.8777
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbr,mice_50104,0.5851
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbrFairtt,elephant,9.3366
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbrFairtt,mice_50100,0.4096
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbrFairtt,mice_50101,0.6827
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbrFairtt,mice_50102,0.512
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbrFairtt,mice_50103,0.8777
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbrFairtt,mice_50104,0.5851
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbrEnhancedFairtt,elephant,9.3362
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbrEnhancedFairtt,mice_50100,0.4096
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbrEnhancedFairtt,mice_50101,0.5851
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbrEnhancedFairtt,mice_50102,0.512
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbrEnhancedFairtt,mice_50103,0.8777
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbrEnhancedFairtt,mice_50104,0.5851
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbrEnhancedFairttV2,elephant,9.3362
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbrEnhancedFairttV2,mice_50100,0.4096
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbrEnhancedFairttV2,mice_50101,0.5851
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbrEnhancedFairttV2,mice_50102,0.512
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbrEnhancedFairttV2,mice_50103,0.8777
+elephant-mice-different-rtt,Different RTT elephant/mice,TcpBbrEnhancedFairttV2,mice_50104,0.5851

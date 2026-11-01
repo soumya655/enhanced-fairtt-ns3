@@ -9,6 +9,7 @@ Jain's Fairness Formula:
 """
 
 import argparse
+import bisect
 import csv
 import json
 import math
@@ -92,6 +93,7 @@ def process_elephant_mice_file(filepath, active_start=1.0, active_stop=None):
         "aggregate_mean_mbps": round(
             sum(row["aggregate_mbps"] for row in per_time_rows) / len(per_time_rows), 4
         ),
+        "overall_jains_index": round(calculate_jains_index_many(list(mean_rates.values())), 4),
         "time_averaged_jains_index": round(
             sum(row["fairness_index"] for row in per_time_rows) / len(per_time_rows), 4
         ),
@@ -165,15 +167,109 @@ def process_throughput_file(filepath, active_start=1.0, active_stop=None):
 
     return metrics, rows
 
+
+def analyze_cwnd_stability(filepath, active_start, active_stop, interval):
+    """Summarize time-resampled cwnd variation as an in-flight target proxy."""
+    if not os.path.isfile(filepath):
+        return None
+
+    by_flow = {}
+    with open(filepath, "r", newline="") as cwnd_file:
+        reader = csv.DictReader(cwnd_file)
+        if not reader.fieldnames or not {"time", "flow", "cwnd_packets"}.issubset(reader.fieldnames):
+            raise ValueError(f"Unexpected congestion-window trace header: {filepath}")
+        for row in reader:
+            by_flow.setdefault(row["flow"], []).append(
+                (float(row["time"]), float(row["cwnd_packets"]))
+            )
+
+    summary = {}
+    for flow, samples in sorted(by_flow.items()):
+        samples.sort()
+        sample_times = [time for time, _ in samples]
+        sampled_values = [value for _, value in samples]
+        values = []
+        time = active_start
+        while time <= active_stop:
+            sample_index = bisect.bisect_right(sample_times, time) - 1
+            if sample_index >= 0:
+                values.append(sampled_values[sample_index])
+            time += interval
+        if not values:
+            continue
+        mean = sum(values) / len(values)
+        variance = sum((value - mean) ** 2 for value in values) / len(values)
+        relative_steps = [
+            abs(current - previous) / max(abs(previous), 1.0)
+            for previous, current in zip(values, values[1:])
+        ]
+        summary[flow] = {
+            "sample_count": len(values),
+            "mean_cwnd_packets": round(mean, 4),
+            "cwnd_coefficient_of_variation": round(
+                math.sqrt(variance) / mean if mean > 0 else 0.0, 6
+            ),
+            "mean_absolute_relative_step": round(
+                sum(relative_steps) / len(relative_steps) if relative_steps else 0.0, 6
+            ),
+            "max_absolute_relative_step": round(max(relative_steps, default=0.0), 6),
+        }
+    return {
+        "interpretation": (
+            "Congestion-window trace is used as an in-flight target proxy; "
+            "it is not a direct measurement of bytes in flight or estimated BDP."
+        ),
+        "sampling_interval_seconds": interval,
+        "per_flow": summary,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="Calculate Jain's Fairness Index from throughput CSV.")
     parser.add_argument("--input", "-i", required=True, help="Path to throughput.csv")
     parser.add_argument("--outdir", "-o", default=None, help="Directory to save metrics.json")
     parser.add_argument("--active-start", type=float, default=2.0, help="Start time for steady-state analysis")
     parser.add_argument("--active-stop", type=float, default=None, help="Stop time for steady-state analysis")
+    parser.add_argument(
+        "--stability-interval",
+        type=float,
+        default=0.2,
+        help="Fixed resampling interval for congestion-window stability analysis",
+    )
     args = parser.parse_args()
+    if not math.isfinite(args.stability_interval) or args.stability_interval <= 0.0:
+        parser.error("--stability-interval must be positive and finite")
 
     metrics, rows = process_throughput_file(args.input, args.active_start, args.active_stop)
+    stability = analyze_cwnd_stability(
+        os.path.join(os.path.dirname(args.input), "cwnd.csv"),
+        metrics["active_start_time"],
+        metrics["active_stop_time"],
+        args.stability_interval,
+    )
+    if stability is not None:
+        metrics["cwnd_stability"] = stability
+    summary_path = os.path.join(os.path.dirname(args.input), "summary.json")
+    if os.path.isfile(summary_path):
+        with open(summary_path, encoding="utf-8") as summary_file:
+            summary = json.load(summary_file)
+        metadata_keys = (
+            "tcpTypeId",
+            "trafficScenario",
+            "rngSeed",
+            "rngRun",
+            "bottleneckBw",
+            "bottleneckDelay",
+            "accessDelayA",
+            "accessDelayB",
+            "v2FairnessFloorStrength",
+            "v2FairnessTransition",
+            "v2BdpSmoothingTimeMs",
+            "v2MaxInflightBytes",
+        )
+        metrics["experiment_metadata"] = {
+            key: summary[key] for key in metadata_keys if key in summary
+        }
 
     print("\n================ FAIRNESS METRICS ================")
     print(f"File:                      {args.input}")
@@ -183,6 +279,7 @@ def main():
             print(f"{flow_name} Mean Throughput: {rate} Mbps")
         print(f"Aggregate Mean Throughput: {metrics['aggregate_mean_mbps']} Mbps")
         print(f"Time-Averaged Jain's:      {metrics['time_averaged_jains_index']}")
+        print(f"Overall Jain's:            {metrics['overall_jains_index']}")
         print(f"Note: {metrics['interpretation_note']}")
     else:
         print(f"Flow A Mean Throughput:    {metrics['flowA_mean_mbps']} Mbps")

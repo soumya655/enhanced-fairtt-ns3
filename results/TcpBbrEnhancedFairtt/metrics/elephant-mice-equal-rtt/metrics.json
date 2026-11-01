@@ -1,0 +1,45 @@
+{
+  "mode": "elephant_mice",
+  "active_start_time": 2.0,
+  "active_stop_time": 29.0,
+  "sample_count": 136,
+  "flow_mean_mbps": {
+    "elephant": 9.3294,
+    "mice_50100": 0.6827,
+    "mice_50101": 1.3653,
+    "mice_50102": 1.024,
+    "mice_50103": 1.536,
+    "mice_50104": 1.3653
+  },
+  "aggregate_mean_mbps": 9.4724,
+  "overall_jains_index": 0.4124,
+  "time_averaged_jains_index": 0.9583,
+  "interpretation_note": "Fairness is computed among flows that have rows at each timestamp. Because mice are staggered and finite, this is not directly comparable to a fixed set of continuously active flows.",
+  "cwnd_stability": {
+    "interpretation": "Congestion-window trace is used as an in-flight target proxy; it is not a direct measurement of bytes in flight or estimated BDP.",
+    "sampling_interval_seconds": 0.2,
+    "per_flow": {
+      "FlowA": {
+        "sample_count": 136,
+        "mean_cwnd_packets": 54.1733,
+        "cwnd_coefficient_of_variation": 0.157998,
+        "mean_absolute_relative_step": 0.309643,
+        "max_absolute_relative_step": 12.32435
+      }
+    }
+  },
+  "experiment_metadata": {
+    "tcpTypeId": "TcpBbrEnhancedFairtt",
+    "trafficScenario": "elephant_mice",
+    "rngSeed": 1,
+    "rngRun": 1,
+    "bottleneckBw": "10Mbps",
+    "bottleneckDelay": "10ms",
+    "accessDelayA": "5ms",
+    "accessDelayB": "5ms",
+    "v2FairnessFloorStrength": 0.7,
+    "v2FairnessTransition": 0.15,
+    "v2BdpSmoothingTimeMs": 50,
+    "v2MaxInflightBytes": 524288
+  }
+}
